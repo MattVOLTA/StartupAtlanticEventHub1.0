@@ -1,0 +1,43 @@
+name: EventHub Sync
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # Run every hour
+  workflow_dispatch:      # Allow manual trigger
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      VITE_EVENTBRITE_TOKEN: ${{ secrets.VITE_EVENTBRITE_TOKEN }}
+      VITE_OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run sync-events script
+        run: npm run sync-events
+        continue-on-error: true  # Continue even if some events fail to sync
+
+      - name: Run analyze-events script
+        run: npm run analyze-events
+        continue-on-error: true  # Continue even if some analysis fails
+
+      - name: Check for errors
+        if: ${{ failure() }}
+        run: |
+          echo "::error::Event sync or analysis failed. Check the logs for details."
+          exit 1
